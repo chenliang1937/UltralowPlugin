@@ -1,0 +1,28 @@
+{
+  "name": "ultralow-plugin",
+  "version": "1.0.3",
+  "description": "a communication plugin for ultra-low ifreezer",
+  "cordova": {
+    "id": "ultralow-plugin",
+    "platforms": [
+      "android"
+    ]
+  },
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chenliang1937/UltralowPlugin.git"
+  },
+  "keywords": [
+    "ultralow"
+  ],
+  "author": "chenliang",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/chenliang1937/UltralowPlugin/issues"
+  },
+  "homepage": "https://github.com/chenliang1937/UltralowPlugin#readme"
+}
