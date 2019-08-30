@@ -11,7 +11,7 @@ import java.util.Arrays;
  */
 public class ParamsEncoderUtil {
 
-    public static byte[] doEncoder(ReadParams params) throws IOException, ParseException {
+    public static byte[] doEncoder(ReadParams params) {
         byte[] bytes = ParamsEncoderUtil.getBytes(params);
         return bytes;
 
@@ -24,7 +24,7 @@ public class ParamsEncoderUtil {
      * @return
      * @throws ParseException
      */
-    public static byte[] getBytes(ReadParams params) throws ParseException {
+    public static byte[] getBytes(ReadParams params) {
         byte[] bytes = new byte[110];
         bytes[0] = (byte)0xA5;
         bytes[1] = 0x03;

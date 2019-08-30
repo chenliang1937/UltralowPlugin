@@ -5,9 +5,11 @@ import android.util.Log;
 import com.google.gson.Gson;
 import com.zkmeiling.serialport.model.Message;
 import com.zkmeiling.serialport.model.Received;
+import com.zkmeiling.serialport.model.ReadParams;
 import com.zkmeiling.serialport.util.CrcUtil;
 import com.zkmeiling.serialport.util.MessageDecoderUtil;
 import com.zkmeiling.serialport.util.ParamsDecoderUtil;
+import com.zkmeiling.serialport.util.ParamsEncoderUtil;
 
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
@@ -35,6 +37,7 @@ public class UltralowPlugin extends CordovaPlugin {
     public InputStream inputStream = null;
     public OutputStream outputStream = null;
     private int position = 0;
+    private boolean isSerialClose = false;
 
     @Override
     public boolean execute(String action, JSONArray args, CallbackContext callbackContext) throws JSONException {
@@ -48,7 +51,7 @@ public class UltralowPlugin extends CordovaPlugin {
                 closeSerialPort(callbackContext);
                 return true;
             case "sendSerialPort":
-                byte[] sendData = args.getString(0).getBytes();
+                String sendData = args.getString(0);
                 sendSerialPort(sendData, callbackContext);
                 return true;
             case "readSerial":
@@ -97,6 +100,7 @@ public class UltralowPlugin extends CordovaPlugin {
      */
     public void closeSerialPort(CallbackContext callbackContext){
         try {
+            isSerialClose = true;
             inputStream.close();
             outputStream.close();
 
@@ -113,20 +117,20 @@ public class UltralowPlugin extends CordovaPlugin {
      * 发送串口指令（字符串）
      * @param data String数据指令
      */
-    public void sendSerialPort(String data){
-        Log.d(TAG, "sendSerialPort: 发送数据");
-
+    public void sendSerialPort(String data, CallbackContext callbackContext){
         try {
-            byte[] sendData = data.getBytes();
+            ReadParams sendParams = new Gson().fromJson(data, ReadParams.class);
+
+            byte[] sendData = ParamsEncoderUtil.doEncoder(sendParams);
             if (sendData.length > 0) {
                 outputStream.write(sendData);
-                outputStream.write('\n');
-                //outputStream.write('\r'+'\n');
                 outputStream.flush();
                 Log.d(TAG, "sendSerialPort: 串口数据发送成功");
+                callbackContext.success("send data success");
             }
         } catch (IOException e) {
             Log.e(TAG, "sendSerialPort: 串口数据发送失败："+e.toString());
+            callbackContext.error("send data error");
         }
     }
 
@@ -165,17 +169,19 @@ public class UltralowPlugin extends CordovaPlugin {
         cordova.getThreadPool().execute(new Runnable() {
             @Override
             public void run() {
-                try {
-                    if (inputStream.available() <= 31) {
-                        Thread.sleep(200);
-                    } else {
-                        onDataReceived(inputStream, callbackContext);
+                while(!isSerialClose) {
+                    try {
+                        if (inputStream.available() <= 31) {
+                            Thread.sleep(200);
+                        } else {
+                            onDataReceived(inputStream, callbackContext);
+                        }
+    
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        callbackContext.error("read serialport data error");
+                        return;
                     }
-
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    callbackContext.error("read serialport data error");
-                    return;
                 }
             }
         });
@@ -206,7 +212,9 @@ public class UltralowPlugin extends CordovaPlugin {
                 message.setSourceDataState(99);
                 message.setSourceDataStateDesc("原始数据CRC校验错误");
 //                onDataReceiveListener.onDataReceive(message);
-                callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, new Gson().toJson(message)));
+                PluginResult crcError = new PluginResult(PluginResult.Status.OK, new Gson().toJson(message));
+                crcError.setKeepCallback(true);
+                callbackContext.sendPluginResult(crcError);
                 return;
             }
             switch (received.getType()) {
@@ -216,19 +224,25 @@ public class UltralowPlugin extends CordovaPlugin {
                     message.setSourceDataStateDesc("原始数据正常");
                     message.setType(1);
 //                    onDataReceiveListener.onDataReceive(message);
-                    callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, new Gson().toJson(message)));
+                    PluginResult runningResult = new PluginResult(PluginResult.Status.OK, new Gson().toJson(message));
+                    runningResult.setKeepCallback(true);
+                    callbackContext.sendPluginResult(runningResult);
                     break;
                 case 2:
                     Message readParams = ParamsDecoderUtil.doDecoder(received);
                     readParams.setType(2);
                     readParams.setSourceDataState(1);
 //                    onDataReceiveListener.onDataReceive(readParams);
-                    callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, new Gson().toJson(readParams)));
+                    PluginResult paramResult = new PluginResult(PluginResult.Status.OK, new Gson().toJson(readParams));
+                    paramResult.setKeepCallback(true);
+                    callbackContext.sendPluginResult(paramResult);
                     break;
                 default:
                     Log.e(TAG, "发送数据类型错误");
 //                    onDataReceiveListener.onDataReceive(null);
-                    callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, "type error"));
+                    PluginResult typeError = new PluginResult(PluginResult.Status.ERROR, "type error");
+                    typeError.setKeepCallback(true);
+                    callbackContext.sendPluginResult(typeError);
                     break;
             }
         } catch (Exception e) {
