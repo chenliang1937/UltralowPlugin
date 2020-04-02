@@ -1,6 +1,6 @@
 {
   "name": "ultralow-plugin",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "a communication plugin for ultra-low ifreezer",
   "cordova": {
     "id": "ultralow-plugin",
